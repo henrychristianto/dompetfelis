@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dompet Felis - Sistem Manajemen Keuangan Personal</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dompet Felis">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/10149/10149451.png">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            padding-bottom: 70px;
+        }
+        @media (min-width: 640px) {
+            body { padding-bottom: 0; }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 hidden sm:block">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <div class="p-2 bg-slate-900 rounded-xl text-white">
+                        <i data-lucide="wallet" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-lg font-bold tracking-tight text-slate-900">Dompet <span class="text-indigo-600">Felis</span></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="triggerImport()" class="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                        <span>Import</span>
+                    </button>
+                    <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+                    
+                    <button onclick="exportData()" class="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                        <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                        <span>Export</span>
+                    </button>
+                    
+                    <button onclick="openModal('transactionModal')" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Transaksi Baru</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="sm:hidden bg-white border-b border-slate-200 px-4 py-4 sticky top-0 z-40 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="p-1.5 bg-slate-900 rounded-lg text-white">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
+            </div>
+            <span class="text-base font-bold text-slate-900">Dompet <span class="text-indigo-600">Felis</span></span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="triggerImport()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><i data-lucide="upload-cloud" class="w-4 h-4"></i></button>
+            <button onclick="exportData()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><i data-lucide="download-cloud" class="w-4 h-4"></i></button>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Horizon Analisis Data</h4>
+                <p id="currentFilterScopeLabel" class="text-xs font-medium text-slate-600 mt-0.5">Menampilkan seluruh data tercatat</p>
+            </div>
+            <div class="bg-slate-100 p-1 rounded-xl flex gap-1 w-full sm:w-auto">
+                <button id="globalToggleAll" onclick="setGlobalTimeFilter('all')" class="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg bg-white text-slate-800 shadow-sm transition">Semua Data</button>
+                <button id="globalToggleMonth" onclick="setGlobalTimeFilter('month')" class="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition">Bulan Ini</button>
+                <button id="globalToggleWeek" onclick="setGlobalTimeFilter('week')" class="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition">Minggu Ini</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Saldo Bersih Periode</p>
+                <h3 id="totalBalance" class="text-2xl sm:text-3xl font-bold mt-1 tracking-tight">Rp 0</h3>
+                <div class="mt-3 flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 w-fit px-2.5 py-1 rounded-md">
+                    <i data-lucide="pie-chart" class="w-3.5 h-3.5"></i>
+                    <span id="savingsRateLabel">Rasio Tabungan: 0%</span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Pemasukan Periode</p>
+                    <h3 id="totalIncome" class="text-xl font-bold text-slate-900 mt-1">Rp 0</h3>
+                </div>
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Pengeluaran Periode</p>
+                    <h3 id="totalExpense" class="text-xl font-bold text-slate-900 mt-1">Rp 0</h3>
+                </div>
+                <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                    <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm lg:col-span-2 flex flex-col justify-between">
+                <div>
+                    <h4 class="text-sm font-bold text-slate-900">Tren Arus Kas</h4>
+                    <p class="text-[11px] text-slate-400 mb-4">Pola fluktuasi kepemilikan aset kuantitatif terfilter</p>
+                </div>
+                <div class="relative w-full h-60">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                    <h4 class="text-sm font-bold text-slate-900">Alokasi Pengeluaran</h4>
+                    <p class="text-[11px] text-slate-400 mb-2">Klik sektor lingkaran untuk melihat rincian</p>
+                </div>
+                <div class="relative w-full h-48 flex justify-center items-center">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="drillDownSection" class="hidden bg-indigo-50/40 border border-indigo-100 rounded-2xl p-5 transition-all">
+            <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="p-1 bg-indigo-600 rounded-md text-white">
+                        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-900">Detail Alokasi: <span id="drillDownCategoryName" class="text-indigo-700 font-extrabold">Kategori</span></h4>
+                </div>
+                <button onclick="closeDrillDown()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="overflow-x-auto bg-white rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs text-slate-600">
+                    <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-2.5">Tanggal</th>
+                            <th class="px-4 py-2.5">Deskripsi</th>
+                            <th class="px-4 py-2.5 text-right">Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drillDownTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm lg:col-span-2 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-900">Buku Besar Transaksi</h4>
+                        <p class="text-[11px] text-slate-400">Riwayat pencatatan sesuai cakupan filter</p>
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        <input type="text" id="searchFilter" oninput="refreshUIDashboard()" placeholder="Cari catatan..." class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 w-full sm:w-36">
+                        <select id="typeFilter" onchange="refreshUIDashboard()" class="text-xs border border-slate-200 rounded-lg p-1.5 bg-slate-50">
+                            <option value="all">Semua Aliran</option>
+                            <option value="income">Pemasukan</option>
+                            <option value="expense">Pengeluaran</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-600">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold rounded-lg">
+                            <tr>
+                                <th class="px-3 py-2.5">Transaksi / Catatan</th>
+                                <th class="px-3 py-2.5 hidden sm:table-cell">Kategori</th>
+                                <th class="px-3 py-2.5">Tanggal</th>
+                                <th class="px-3 py-2.5 text-right">Jumlah</th>
+                                <th class="px-3 py-2.5 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledgerTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                    <h4 class="text-sm font-bold text-slate-900 mb-0.5">Kelola Struktur Kategori</h4>
+                    <p class="text-[11px] text-slate-400 mb-3">Sesuaikan klasifikasi anggaran berkala.</p>
+                    
+                    <form id="customCategoryForm" onsubmit="addCustomCategory(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Jenis Sistem</label>
+                            <select id="customType" class="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50 focus:outline-none focus:border-indigo-500">
+                                <option value="income">Sistem Pemasukan</option>
+                                <option value="expense">Sistem Pengeluaran</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Nama Kategori Kustom</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="customName" placeholder="Contoh: Saham, Kucing, Pajak" required class="flex-1 text-xs border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-indigo-500">
+                                <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-lg text-xs font-semibold transition">
+                                    Tambah
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100">
+                    <h5 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Daftar Komponen Aktif</h5>
+                    <div id="customCategoryBadges" class="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-0.5"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 h-16 flex items-center justify-around px-4 z-40 shadow-lg">
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex flex-col items-center gap-1 text-slate-500 hover:text-indigo-600">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">Dashboard</span>
+        </button>
+        <button onclick="openModal('transactionModal')" class="flex flex-col items-center justify-center bg-indigo-600 text-white w-12 h-12 rounded-full -translate-y-4 shadow-md active:scale-95 transition">
+            <i data-lucide="plus" class="w-6 h-6"></i>
+        </button>
+        <button onclick="document.getElementById('searchFilter').focus(); window.scrollTo({top: document.getElementById('searchFilter').offsetTop, behavior: 'smooth'})" class="flex flex-col items-center gap-1 text-slate-500 hover:text-indigo-600">
+            <i data-lucide="search" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">Cari</span>
+        </button>
+    </div>
+
+    <div id="transactionModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs hidden flex items-center justify-center p-4 transition-all">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden transform scale-95 transition-all">
+            <div class="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-sm font-bold text-slate-900">Catat Arus Keuangan</h3>
+                <button onclick="closeModal('transactionModal')" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form id="transactionForm" onsubmit="saveTransaction(event)" class="p-5 space-y-3.5">
+                <div>
+                    <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Arah Arus Dana</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="border-2 border-emerald-500 bg-emerald-50/20 text-emerald-700 text-center py-2 rounded-xl text-xs font-semibold cursor-pointer block" id="labelIncome">
+                            <input type="radio" name="type" value="income" checked onchange="toggleFormType('income')" class="sr-only">
+                            Pemasukan
+                        </label>
+                        <label class="border-2 border-slate-200 text-slate-600 text-center py-2 rounded-xl text-xs font-semibold cursor-pointer block" id="labelExpense">
+                            <input type="radio" name="type" value="expense" onchange="toggleFormType('expense')" class="sr-only">
+                            Pengeluaran
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="amount" class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Nominal (IDR)</label>
+                    <input type="number" id="amount" required min="1" placeholder="Masukkan angka tanpa titik..." class="w-full text-sm border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="date" class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Tanggal</label>
+                        <input type="date" id="date" required class="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="category" class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Kategori</label>
+                        <select id="category" required class="w-full text-xs border border-slate-200 rounded-xl p-2.5 bg-white focus:outline-none focus:border-indigo-500"></select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="description" class="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Deskripsi / Catatan Tambahan</label>
+                    <textarea id="description" placeholder="Tulis keterangan transaksi di sini..." rows="2" class="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex gap-2 justify-end">
+                    <button type="button" onclick="closeModal('transactionModal')" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition">Simpan Transaksi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let transactions = JSON.parse(localStorage.getItem('felis_transactions')) || [];
+        let categories = JSON.parse(localStorage.getItem('felis_categories')) || {
+            income: ['Gaji', 'Investasi', 'Uang Saku', 'Lainnya'],
+            expense: ['Makanan & Minuman', 'Bulanan & Tagihan', 'Transportasi', 'Hiburan', 'Belanja', 'Kesehatan', 'Lainnya']
+        };
+        
+        let globalTimeFilter = 'all'; 
+        let trendChart = null;
+        let pieChart = null;
+
+        // Penampung pembaruan asinkronus (menghilangkan lag)
+        let renderTimeout = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initDateSelectorDefault();
+            initEmptyCharts(); // Inisialisasi awal canvas agar ringan saat diupdate
+            refreshUIDashboard();
+        });
+
+        function initDateSelectorDefault() {
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+            populateCategoryDropdown();
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 150);
+        }
+
+        function toggleFormType(type) {
+            const labelInc = document.getElementById('labelIncome');
+            const labelExp = document.getElementById('labelExpense');
+            if (type === 'income') {
+                labelInc.className = "border-2 border-emerald-500 bg-emerald-50/20 text-emerald-700 text-center py-2 rounded-xl text-xs font-semibold cursor-pointer block";
+                labelExp.className = "border-2 border-slate-200 text-slate-600 text-center py-2 rounded-xl text-xs font-semibold cursor-pointer block";
+            } else {
+                labelExp.className = "border-2 border-rose-500 bg-rose-50/20 text-rose-700 text-center py-2 rounded-xl text-xs font-semibold cursor-pointer block";
+                labelInc.className = "border-2 border-slate-200 text-slate-600 text-center py-2 rounded-xl text-xs font-semibold cursor-pointer block";
+            }
+            populateCategoryDropdown(type);
+        }
+
+        function populateCategoryDropdown(forcedType = null) {
+            const currentSelectedType = forcedType || document.querySelector('input[name="type"]:checked').value;
+            const selectEl = document.getElementById('category');
+            selectEl.innerHTML = '';
+            categories[currentSelectedType].forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                selectEl.appendChild(opt);
+            });
+        }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const date = document.getElementById('date').value;
+            const category = document.getElementById('category').value;
+            const description = document.getElementById('description').value.trim();
+
+            const entry = { id: 'tx_' + Date.now(), type, amount, date, category, description };
+            transactions.push(entry);
+            commitStateToStorage();
+            
+            document.getElementById('transactionForm').reset();
+            initDateSelectorDefault();
+            toggleFormType('income');
+            closeModal('transactionModal');
+            refreshUIDashboard();
+        }
+
+        function deleteTransaction(id) {
+            if(confirm('Hapus transaksi ini secara permanen?')) {
+                transactions = transactions.filter(tx => tx.id !== id);
+                commitStateToStorage();
+                refreshUIDashboard();
+                closeDrillDown();
+            }
+        }
+
+        function addCustomCategory(e) {
+            e.preventDefault();
+            const type = document.getElementById('customType').value;
+            const name = document.getElementById('customName').value.trim();
+            
+            if(name && !categories[type].includes(name)) {
+                categories[type].push(name);
+                localStorage.setItem('felis_categories', JSON.stringify(categories));
+                document.getElementById('customName').value = '';
+                refreshUIDashboard();
+                populateCategoryDropdown();
+            }
+        }
+
+        function commitStateToStorage() {
+            localStorage.setItem('felis_transactions', JSON.stringify(transactions));
+        }
+
+        function formatIDR(num) {
+            return 'Rp ' + num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        function setGlobalTimeFilter(filterValue) {
+            globalTimeFilter = filterValue;
+            const btnAll = document.getElementById('globalToggleAll');
+            const btnMonth = document.getElementById('globalToggleMonth');
+            const btnWeek = document.getElementById('globalToggleWeek');
+            const scopeLabel = document.getElementById('currentFilterScopeLabel');
+            
+            [btnAll, btnMonth, btnWeek].forEach(b => b.className = "flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 transition");
+            
+            const activeBtn = filterValue === 'all' ? btnAll : (filterValue === 'month' ? btnMonth : btnWeek);
+            activeBtn.className = "flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg bg-white text-slate-800 shadow-sm transition";
+
+            if (filterValue === 'all') {
+                scopeLabel.innerText = "Menampilkan seluruh data transaksi tercatat";
+            } else if (filterValue === 'month') {
+                const mName = new Date().toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+                scopeLabel.innerText = `Terfilter: Hanya data bulan ${mName}`;
+            } else {
+                scopeLabel.innerText = "Terfilter: Hanya data rentang minggu kalender ini";
+            }
+
+            refreshUIDashboard();
+            closeDrillDown();
+        }
+
+        function getFilteredTransactions() {
+            const today = new Date();
+            return transactions.filter(tx => {
+                if (globalTimeFilter === 'all') return true;
+                const txDate = new Date(tx.date);
+                if (globalTimeFilter === 'month') {
+                    return txDate.getFullYear() === today.getFullYear() && txDate.getMonth() === today.getMonth();
+                } else if (globalTimeFilter === 'week') {
+                    return txDate.getFullYear() === today.getFullYear() && getWeekNumber(txDate) === getWeekNumber(today);
+                }
+                return true;
+            });
+        }
+
+        function refreshUIDashboard() {
+            const activeDataset = getFilteredTransactions();
+
+            let balance = 0, incomeTotal = 0, expenseTotal = 0;
+            activeDataset.forEach(tx => {
+                if (tx.type === 'income') incomeTotal += tx.amount;
+                else expenseTotal += tx.amount;
+            });
+            balance = incomeTotal - expenseTotal;
+
+            document.getElementById('totalBalance').innerText = formatIDR(balance);
+            document.getElementById('totalIncome').innerText = formatIDR(incomeTotal);
+            document.getElementById('totalExpense').innerText = formatIDR(expenseTotal);
+
+            const savingsRate = incomeTotal > 0 ? Math.max(0, Math.min(100, ((incomeTotal - expenseTotal) / incomeTotal) * 100)) : 0;
+            document.getElementById('savingsRateLabel').innerText = `Rasio Tabungan Periode: ${savingsRate.toFixed(1)}%`;
+
+            renderLedgerTable(activeDataset);
+            renderCategoryBadges();
+
+            // Optimasi Asinkronus: Masukkan penggambaran grafik ke antrean makrotask agar UI tidak lag
+            if (renderTimeout) clearTimeout(renderTimeout);
+            renderTimeout = setTimeout(() => {
+                updateTrendChart(activeDataset);
+                updatePieChart(activeDataset);
+            }, 16); 
+
+            lucide.createIcons();
+        }
+
+        function renderLedgerTable(activeDataset) {
+            const body = document.getElementById('ledgerTableBody');
+            body.innerHTML = '';
+            
+            const searchVal = document.getElementById('searchFilter').value.toLowerCase();
+            const typeVal = document.getElementById('typeFilter').value;
+
+            let processedList = activeDataset.filter(tx => {
+                const matchesSearch = (tx.description && tx.description.toLowerCase().includes(searchVal)) || tx.category.toLowerCase().includes(searchVal);
+                const matchesType = typeVal === 'all' || tx.type === typeVal;
+                return matchesSearch && matchesType;
+            });
+
+            processedList.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if(processedList.length === 0) {
+                body.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 text-xs">Tidak ada data transaksi yang sesuai.</td></tr>`;
+                return;
+            }
+
+            processedList.forEach(tx => {
+                const isInc = tx.type === 'income';
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50/80 transition-colors";
+                row.innerHTML = `
+                    <td class="px-3 py-3">
+                        <div class="font-medium text-slate-900 text-xs max-w-[150px] sm:max-w-[240px] truncate" title="${tx.description || '-'}">${tx.description || 'Tanpa Keterangan'}</div>
+                    </td>
+                    <td class="px-3 py-3 hidden sm:table-cell">
+                        <span class="inline-block px-2 py-0.5 text-[10px] font-medium rounded-md ${isInc ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}">${tx.category}</span>
+                    </td>
+                    <td class="px-3 py-3 text-[11px] text-slate-500">${tx.date}</td>
+                    <td class="px-3 py-3 text-right font-semibold text-xs ${isInc ? 'text-emerald-600' : 'text-rose-600'}">
+                        ${isInc ? '+' : '-'}${formatIDR(tx.amount)}
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <button onclick="deleteTransaction('${tx.id}')" class="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-slate-100 transition inline-block">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        function renderCategoryBadges() {
+            const target = document.getElementById('customCategoryBadges');
+            target.innerHTML = '';
+            ['income', 'expense'].forEach(type => {
+                categories[type].forEach(cat => {
+                    const badge = document.createElement('span');
+                    badge.className = `text-[10px] font-medium px-2 py-0.5 rounded-md border ${type==='income' ? 'bg-emerald-50 text-emerald-700 border-emerald-100':'bg-rose-50 text-rose-700 border-rose-100'}`;
+                    badge.innerText = cat;
+                    target.appendChild(badge);
+                });
+            });
+        }
+
+        // Inisialisasi Chart Sekali di Awal Booting Sistem
+        function initEmptyCharts() {
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctxTrend, {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    { label: 'Masuk', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.01)', fill: true, tension: 0.2, borderWidth: 2 },
+                    { label: 'Keluar', data: [], borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.01)', fill: true, tension: 0.2, borderWidth: 2 }
+                ]},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#64748b' } }
+                    }
+                }
+            });
+
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            pieChart = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#f43f5e', '#3b82f6', '#eab308', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#64748b'], borderWidth: 1.5, borderColor: '#ffffff' }]},
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const segmentIdx = activeElements[0].index;
+                            const categoryClicked = pieChart.data.labels[segmentIdx];
+                            triggerDrillDown(categoryClicked);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Fungsi Mutasi Data Chart Instan Tanpa Siklus Destroy
+        function updateTrendChart(activeDataset) {
+            const internalScale = globalTimeFilter === 'all' ? 'month' : (globalTimeFilter === 'month' ? 'week' : 'day');
+            const datasets = getTrendAggregatedData(activeDataset, internalScale);
+            
+            trendChart.data.labels = datasets.labels;
+            trendChart.data.datasets[0].data = datasets.income;
+            trendChart.data.datasets[1].data = datasets.expense;
+            trendChart.update('none'); // Update instan tanpa trigger animasi berat berulang
+        }
+
+        function updatePieChart(activeDataset) {
+            const aggregates = {};
+            categories.expense.forEach(c => aggregates[c] = 0);
+            
+            activeDataset.forEach(tx => {
+                if(tx.type === 'expense') {
+                    if(!aggregates[tx.category]) aggregates[tx.category] = 0;
+                    aggregates[tx.category] += tx.amount;
+                }
+            });
+
+            const labels = Object.keys(aggregates).filter(k => aggregates[k] > 0);
+            const data = labels.map(k => aggregates[k]);
+
+            pieChart.data.labels = labels;
+            pieChart.data.datasets[0].data = data;
+            pieChart.update('none');
+        }
+
+        function getTrendAggregatedData(activeDataset, scale) {
+            const sortedTx = [...activeDataset].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const dataMap = {};
+
+            sortedTx.forEach(tx => {
+                let key = '';
+                if (scale === 'month') {
+                    key = tx.date.substring(0, 7); 
+                } else if (scale === 'week') {
+                    const dateObj = new Date(tx.date);
+                    key = `W${getWeekNumber(dateObj)}`;
+                } else {
+                    key = tx.date; 
+                }
+                if (!dataMap[key]) dataMap[key] = { income: 0, expense: 0 };
+                dataMap[key][tx.type] += tx.amount;
+            });
+
+            const labels = Object.keys(dataMap).sort();
+            const income = labels.map(l => dataMap[l].income);
+            const expense = labels.map(l => dataMap[l].expense);
+            return { labels, income, expense };
+        }
+
+        function getWeekNumber(d) {
+            d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+        }
+
+        function triggerDrillDown(categoryName) {
+            const activeDataset = getFilteredTransactions();
+            const targetPane = document.getElementById('drillDownSection');
+            const targetTitle = document.getElementById('drillDownCategoryName');
+            const targetTableBody = document.getElementById('drillDownTableBody');
+
+            targetTitle.innerText = categoryName;
+            targetTableBody.innerHTML = '';
+
+            const filteredData = activeDataset.filter(tx => tx.type === 'expense' && tx.category === categoryName)
+                                             .sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            filteredData.forEach(tx => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-100 text-[11px]";
+                tr.innerHTML = `
+                    <td class="px-4 py-2 text-slate-500">${tx.date}</td>
+                    <td class="px-4 py-2 font-medium text-slate-800">${tx.description || 'Tanpa Catatan'}</td>
+                    <td class="px-4 py-2 text-right text-rose-600 font-semibold">${formatIDR(tx.amount)}</td>
+                `;
+                targetTableBody.appendChild(tr);
+            });
+
+            targetPane.classList.remove('hidden');
+            targetPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            lucide.createIcons();
+        }
+
+        function closeDrillDown() {
+            document.getElementById('drillDownSection').classList.add('hidden');
+        }
+
+        function exportData() {
+            const blobStateString = JSON.stringify({ transactions, categories }, null, 2);
+            const blob = new Blob([blobStateString], { type: 'application/json' });
+            const temporaryAnchor = document.createElement('a');
+            temporaryAnchor.href = URL.createObjectURL(blob);
+            temporaryAnchor.download = `DompetFelis_Backup_${new Date().toISOString().substring(0,10)}.json`;
+            document.body.appendChild(temporaryAnchor);
+            temporaryAnchor.click();
+            document.body.removeChild(temporaryAnchor);
+        }
+
+        function triggerImport() {
+            document.getElementById('importFile').click();
+        }
+
+        function importData(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const structuralData = JSON.parse(e.target.result);
+                    if(structuralData.transactions && structuralData.categories) {
+                        transactions = structuralData.transactions;
+                        categories = structuralData.categories;
+                        commitStateToStorage();
+                        localStorage.setItem('felis_categories', JSON.stringify(categories));
+                        refreshUIDashboard();
+                        alert('Database ekosistem keuangan Felis berhasil dipulihkan!');
+                    } else {
+                        alert('Format file cadangan tidak valid.');
+                    }
+                } catch (err) {
+                    alert('Gagal membaca file streaming log.');
+                }
+            };
+            fileReader.readAsText(event.target.files[0]);
+        }
+    </script>
+</body>
+</html>
